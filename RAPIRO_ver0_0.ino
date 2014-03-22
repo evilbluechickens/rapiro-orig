@@ -1,3 +1,7 @@
+//Original code by Shota Ishiwatari can be found at www.kiluck.co.jp/rapiro/RAPIRO_ver0_0.ino or www.rapiro.com/downloads/ or https://github.com/Ishiwatari/RAPIRO
+//Modified using work done by stefba_b and djakku from this thread: http://forum.rapiro.com/thread/21/
+//evilbluechickens 032114
+
 #include <Servo.h>
 
 #define SHIFT 7
@@ -6,7 +10,7 @@
 #define B 2          // Blue LED
 #define TIME 15      // Column of Time
 #define MAXSN 12     // Max Number of Servos
-#define MAXMN 10     // Max Number of Motions
+#define MAXMN 11     // Max Number of Motions
 #define MAXFN 8      // Max Number of Frames 
 #define POWER 17     // Servo power supply control pin
 #define ERR -1       // Error
@@ -151,6 +155,16 @@ uint8_t motion[MAXMN][MAXFN][16]={
   { 40,140, 90, 70, 90,180, 90, 90, 90, 90, 90, 90,  0,  0,255, 25},
   { 90, 90,  0, 90, 90,180, 90, 90, 90, 90, 90, 90,  0,  0,  0,  0},
   { 90, 90,  0, 90, 90,180, 90, 90, 90, 90, 90, 90,  0,  0,  0,  0}
+},
+{  // 10 Sports
+  { 90, 90,  0,130, 90,180, 50, 90, 90, 90, 90, 90,  0,  0,  0, 10},
+  { 45, 45, 45, 85, 90,180, 50, 90, 90, 90, 90, 90,128,  0,  0, 10},
+  {  0,  0, 90, 40, 90,180, 50, 90, 90, 90, 90, 90,  0,128,  0, 10},
+  { 45, 45, 45, 85, 90,180, 50, 90, 90, 90, 90, 90,  0,  0,128, 10},
+  { 90, 90,  0,130, 90,180, 50, 90, 90, 90, 90, 90,255,128,  0, 10},
+  {135,135,  0,130, 90,135, 95, 90, 90, 90, 90, 90,  0,255,128, 10},
+  {180,180,  0,130, 90, 90,140, 90, 90, 90, 90, 90,128,  0,255, 10},
+  { 90, 90,  0,130, 90,180, 50, 90, 90, 90, 90, 90,  0,  0,  0, 10}
 }
 };
 
@@ -192,6 +206,7 @@ void setup()  {
 
 void loop()  {
   int buf = ERR;
+  int valbuf = 0;
   if(Serial.available()) {
     if(Serial.read() == '#') {
       while(!Serial.available()){}
@@ -199,53 +214,71 @@ void loop()  {
         case 'M':
           buf = readOneDigit();
           if(buf != ERR){
-            motionNumber = buf;
-            mode = 'M';
-            digitalWrite(POWER, HIGH);
-            Serial.println("#M");
-            Serial.println(motionNumber);
-          } else {
-            Serial.println("#EM");
-          }
+			valbuf = buf *10;
+			buf = readOneDigit();
+			if(buf != ERR) {
+			  valbuf += buf;
+			  if(0 <= valbuf && valbuf < MAXMN) {
+			    motionNumber = valbuf;
+                mode = 'M';
+                digitalWrite(POWER, HIGH);
+                Serial.print("#M");
+                Serial.println(motionNumber);
+			  } else {
+                                motionNumber = 0;
+				Serial.println("#EM");
+			  }
+			} else {
+                            motionNumber = 0;
+                            Serial.println("#EM");
+            }
+		  } else {
+                      motionNumber = 0;
+                      Serial.println("#EM");
+		  }
         break;
         case 'P':
           buf = getPose();
           if(buf != ERR) {
             mode = 'P';
             digitalWrite(POWER, HIGH);
-            Serial.println("#PT");
+            Serial.print("#PT");
             printThreeDigit(buf);
           } else {
-            Serial.println("#EP");
+            Serial.print("#EP");
           }
         break;
         case 'Q':
-          Serial.println("#Q");
+          Serial.print("#Q");
           if(mode == 'M') {
-            Serial.println("M");
-            Serial.println(motionNumber);
-            Serial.println("T");
+            Serial.print("M");
+            Serial.print(motionNumber);
+            Serial.print("T");
             buf = (endTime-millis()) /100;
             if(buf < 0) { buf = 0;}
             printThreeDigit(buf);
           }
           if(mode == 'P') {
-            Serial.println("PT");
+            Serial.print("PT");
             buf = (endTime-millis()) /100;
             if(buf < 0) { buf = 0;}
             printThreeDigit(buf);
           }
         break;
         case 'C':
-          Serial.println("#C");
+          Serial.print("#C");
           if(bufferTime > 0) {
-            Serial.println("F");
+            Serial.print("F");
           } else {
-            Serial.println("0");
+            Serial.print("0");
           }
         break;
+        case 'H':
+          Serial.print("#H");
+          digitalWrite(POWER, LOW);
+        break;
         default:
-          Serial.println("#E");
+          Serial.print("#E");
         break;
       }
     }
@@ -341,7 +374,7 @@ int getPose() {
           buf = readOneDigit();
           if(buf != ERR) {
             value += buf;
-            if(0 <= value || value < MAXSN) {
+            if(0 <= value && value < MAXSN) {
               while(!Serial.available()) {}
               if(Serial.read() == 'A') {
                 maximum = 180;
@@ -415,11 +448,11 @@ int getPose() {
 int printThreeDigit(int buf) {
   String s = String(buf);
   if(s.length() == 2){
-    Serial.println("0");
+    Serial.print("0");
   } else if (s.length() == 1) {
-    Serial.println("00");
+    Serial.print("00");
   }
-  Serial.println(s);
+  Serial.print(s);
 }
 
 int digit;
